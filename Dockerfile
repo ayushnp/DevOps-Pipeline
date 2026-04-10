@@ -1,13 +1,8 @@
-FROM python:3.10-slim
+# DevOps-Pipeline-main/Dockerfile update
+FROM python:3.10.14-slim-bookworm 
 
 WORKDIR /app
-
-# Install dependencies first (better caching)
 COPY requirements.txt .
-
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy only required files
 COPY . .
-
 CMD ["python", "app.py"]

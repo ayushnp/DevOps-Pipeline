@@ -5,7 +5,7 @@ from google.cloud import secretmanager
 
 def rotate_gcp_secret(secret_id):
     client = secretmanager.SecretManagerServiceClient()
-    project_id = "YOUR_GCP_PROJECT_ID" # Replace with your ID
+    project_id = "ci-cd-pipeline-492918" # Replace with your ID
     secret_path = f"projects/{project_id}/secrets/{secret_id}"
     
     # In a real demo, generate a new random string or API key here
