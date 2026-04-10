@@ -2,10 +2,11 @@
    HELPER: SECRET ROTATION VIA GCP SECRET MANAGER
 -------------------------------------------------------- */
 def rotateSecret(String ruleId) {
-    // Replace 'gcp-secret-manager-key' with the ID of the JSON key you upload to Jenkins
+    // Uses the JSON key uploaded to Jenkins as 'gcp-secret-manager-key'
     withCredentials([file(credentialsId: 'gcp-secret-manager-key', variable: 'GCP_KEY')]) {
         bat """
             set GOOGLE_APPLICATION_CREDENTIALS=%GCP_KEY%
+            set GCP_PROJECT_ID=${env.GCP_PROJECT_ID}
             python rotate_secrets.py leaks.json
         """
         echo "✅ GCP Secret rotation triggered for rule: ${ruleId}"
@@ -20,7 +21,7 @@ pipeline {
         IMAGE = "ayushnp10/devopsaba:latest"
         IMAGE_VERSION = "ayushnp10/devopsaba:${BUILD_NUMBER}"
         LAST_SUCCESS_FILE = "last_success_image.txt"
-        // Replace with your actual GCP Project ID
+        // Active GCP Project ID for rotation script
         GCP_PROJECT_ID = "ci-cd-pipeline-492918" 
     }
 
@@ -70,7 +71,7 @@ ${leakSummary}
 
 Action: Credentials are being auto-rotated via GCP Secret Manager.
 """
-                                // Send Notifications
+                                // Send Slack Notification
                                 slackSend(channel: '#ci-cd-pipeline', tokenCredentialId: 'ae899829-98fa-4f99-b61b-9b966850cb88', message: alertMsg)
                                 
                                 // Trigger Rotation for each unique secret type
@@ -92,9 +93,8 @@ Action: Credentials are being auto-rotated via GCP Secret Manager.
         }
 
         /* --------------------------------------------------------
-           SECURITY SCAN — TRIVY FS
+           SECURITY SCAN — TRIVY FS (With Cache Mapping)
         -------------------------------------------------------- */
-        /* --- Updated Trivy FS Scan Stage --- */
         stage('Trivy FS Scan') {
             steps {
                 bat """
@@ -105,21 +105,6 @@ Action: Credentials are being auto-rotated via GCP Secret Manager.
                         --severity HIGH,CRITICAL ^
                         --exit-code 1
                 """
-            }
-        }
-
-        /* --- Updated Image Scan Stage --- */
-        stage('Image Scan (Trivy Image)') {
-            steps {
-                script {
-                    bat """
-                        docker run --rm ^
-                            -v C:\\trivy_cache:/root/.cache/ ^
-                            aquasec/trivy:latest image %IMAGE% ^
-                            --severity HIGH,CRITICAL ^
-                            --exit-code 1
-                    """
-                }
             }
         }
 
@@ -134,13 +119,20 @@ Action: Credentials are being auto-rotated via GCP Secret Manager.
         }
 
         /* --------------------------------------------------------
-           IMAGE VULNERABILITY & SECRET SCAN
+           IMAGE VULNERABILITY & SECRET SCAN (With Cache Mapping)
         -------------------------------------------------------- */
         stage('Image Scan (Trivy Image)') {
             steps {
                 script {
-                    // CVE Scan
-                    bat "docker run --rm aquasec/trivy:latest image %IMAGE% --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1"
+                    // CVE Scan using local cache
+                    bat """
+                        docker run --rm ^
+                            -v C:\\trivy_cache:/root/.cache/ ^
+                            aquasec/trivy:latest image %IMAGE% ^
+                            --severity HIGH,CRITICAL ^
+                            --ignore-unfixed ^
+                            --exit-code 1
+                    """
 
                     // Secret Scan on Layers
                     def secretStatus = bat(
