@@ -94,9 +94,32 @@ Action: Credentials are being auto-rotated via GCP Secret Manager.
         /* --------------------------------------------------------
            SECURITY SCAN — TRIVY FS
         -------------------------------------------------------- */
+        /* --- Updated Trivy FS Scan Stage --- */
         stage('Trivy FS Scan') {
             steps {
-                bat "docker run --rm -v %CD%:/repo aquasec/trivy:latest fs /repo --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1"
+                bat """
+                    docker run --rm ^
+                        -v %CD%:/repo ^
+                        -v C:\\trivy_cache:/root/.cache/ ^
+                        aquasec/trivy:latest fs /repo ^
+                        --severity HIGH,CRITICAL ^
+                        --exit-code 1
+                """
+            }
+        }
+
+        /* --- Updated Image Scan Stage --- */
+        stage('Image Scan (Trivy Image)') {
+            steps {
+                script {
+                    bat """
+                        docker run --rm ^
+                            -v C:\\trivy_cache:/root/.cache/ ^
+                            aquasec/trivy:latest image %IMAGE% ^
+                            --severity HIGH,CRITICAL ^
+                            --exit-code 1
+                    """
+                }
             }
         }
 
